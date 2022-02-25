@@ -1,1 +1,1 @@
-icm -cn 10.210.61.35 -cr admin -ScriptBlock {C:\Windows\autorunsc.exe -c} | ConvertFrom-String -Delimiter "," -PropertyNames (.\autorunsc.exe -c)[5].split(",") | select "Entry Location","Entry","Image Path","Launch String" -Skip 1 | ? -Property Entry -NE "" | Out-GridView
+icm -cn x.x.x.x -cr x -ScriptBlock {C:\Windows\autorunsc.exe -c} | ConvertFrom-String -Delimiter "," -PropertyNames (.\autorunsc.exe -c)[5].split(",") | select "Entry Location","Entry","Image Path","Launch String" -Skip 1 | ? -Property Entry -NE "" | Out-GridView

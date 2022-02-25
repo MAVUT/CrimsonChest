@@ -93,6 +93,10 @@ Foreach($Consumer in (get-wmiobject -namespace root\subscription -Class __EventC
 (get-wmiobject -namespace root\subscription -Class __Filtertoconsumerbinding) | % {$_.Consumer.Substring(30).trim('"'), $_.Filter.Substring(30).trim('"')}
   
   
+[System.Collections.ArrayList]$kak=@() #creating arraylist
+
+gm -InputObject $kak #testing arraylist
+
 <#  gwmi win32_process | select-object name,processid,path,commandline,@{name="Hash"; expr={
                 if($_.path) {
                         (certutil.exe -hashfile $_.path SHA256)[1] -replace " ", ""

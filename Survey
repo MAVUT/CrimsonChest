@@ -1,0 +1,204 @@
+function Survey-Services
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+
+        [pscredential]
+        $Credential
+    )
+    Begin
+    {
+        If (!$Credential) {$Credential = get-credential}
+    }
+    Process
+    {
+        icm -computername $ComputerName -credential $Credential -scriptblock {
+            gwmi -class win32_service | select-object name,pathname,state,startmode,startname
+        }#icm script block
+    }#process block
+}#function Survey-Services
+
+function Survey-Processes
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+        
+        [pscredential]
+        $Credential,
+
+        [Parameter(Mandatory=$true)]
+        [string]
+        $path
+    )
+    Begin
+    {
+        If (!$Credential) {$Credential = get-credential}
+    }
+    Process
+    {
+        icm -computername $ComputerName -credential $Credential -scriptblock {
+            gwmi win32_process | select-object name,processid,path,commandline,@{name="Hash" expr={
+                if($_.path) {
+                        (certutil.exe -hashfile $_.path SHA256)[1] -replace " ", ""
+                } else {
+                    ""
+                } 
+            } #expr
+            }, #hash hashtable
+            @{name="Process_Owner" expr={$_.getowner().domain + "\" + $_.getowner().user}
+            } #process owner hashtable
+        }#icm script block
+    }#process block
+}#function Survey-Processes
+
+function Survey-FileHash
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+        
+        [pscredential]
+        $Credential,
+
+        [Parameter(Mandatory=$true)]
+        [string]
+        $path
+    )
+    Begin
+    {
+        If (!$Credential) {$Credential = get-credential}
+    }
+    Process
+    {
+        icm -computername $ComputerName -credential $Credential -scriptblock {
+            gci -path $using:Path | ? {$_.extension} | select-object name,@{n="Hash"; e={(certutil.exe -hashfile $_.fullname SHA256)[1] -replace " ", ""}}
+        }#icm script block
+    }#process block
+}#function Survey-FileHash
+
+function Survey-Accounts
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+        
+        [pscredential]
+        $Credential
+        )
+        Begin 
+        {
+            If (!$Credential) {$Credential = get-credential}   
+        }
+        Process 
+        {
+            icm -computername $ComputerName -credential $Credential -scriptblock {
+                    gwmi win32_useraccount | select-object accounttype,name,localaccount,domain,sid
+                } #end script block   
+        }#process block
+    }#function Survey-Accounts
+}
+
+function Survey-Autoruns
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+        
+        [pscredential]
+        $Credential,
+
+    )
+    Begin
+    {
+        If (!$Credential) {$Credential = get-credential}
+    }
+    Process
+    {
+        icm -computername $ComputerName -credential $Credential -scriptblock {
+            $autorundirs = 
+                "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\startup",
+                "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\startup"
+            foreach ($dir in $autorundirs) {
+                foreach ($file in gci $dir -Recurse | ? {$_.extension}) {
+                    $data = @{Type      = "AutoRun Directory"
+                              File      = $_.file.fullname 
+                              Hash      = (certutil.exe -hashfile $_.fullname SHA256)[1] -replace " ", ""
+                              Location  = $dir
+                              Command   = $null
+                    } #hashtable definition
+                    new-object -typename psobject -property $data
+                } #foreach $file
+            } #foreach $dir
+        } #icm script block   
+    } #process block
+} #function Survey-Autoruns
+
+function Survey-Autoruns
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+        
+        [pscredential]
+        $Credential,
+
+    )
+    Begin
+    {
+        If (!$Credential) {$Credential = get-credential}
+    }
+    Process
+    {
+        icm -computername $ComputerName -credential $Credential -scriptblock {
+            $autorundirs = 
+                "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\startup",
+                "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\startup"
+            foreach ($dir in $autorundirs) {
+                foreach ($file in gci $dir -Recurse | ? {$_.extension}) {
+                    $data = @{Type      = "AutoRun Directory"
+                              File      = $_.file.fullname 
+                              Hash      = (certutil.exe -hashfile $_.fullname SHA256)[1] -replace " ", ""
+                              Location  = $dir
+                              Command   = $null
+                    } #hashtable definition
+                    new-object -typename psobject -property $data
+                } #foreach $file
+            } #foreach $dir
+            foreach ($location in $using:RegistryAutoRunLoc) {
+                if (!(Test-Path $location)) {continue}
+                    $reg = get-item -path $location -erroraction silentlycontinue
+                    foreach ($key in $reg.getvaluenames()) {
+                        $command = $reg.getvalue($key)
+                        $file = $command -replace '\"', "" -replace "\.exe.*", ".exe"
+                        $data = @{Type      = "AutoRun Registry"
+                                  File      = $file 
+                                  Hash      = (certutil.exe -hashfile $file SHA256)[1] -replace " ", ""
+                                  Location  = "$location\$key"
+                                  Command   = $command
+                        }#hashtable definition
+                        new-object -typename psobject -property $data
+                    } #foreach command
+            } #foreach location
+        } #icm script block   
+    } #process block
+} #function Survey-Autoreg

@@ -1,12 +1,10 @@
+
+   
 <###
 WMI WARRIOR V1
-
 V1
 - Added Filter Definitions
 - Added Consumer Definitions
-
-
-
 ####>
 
 
@@ -73,7 +71,7 @@ __TimerNextFiring,	Reserved for operating system use,
 __Trustee,	Represents a trustee. Either a name or a SID (byte array) can be used,
 __Win32Provider,	Registers information about a provider's physical implementation in WMI"
 
-$FILDEFTAB = ConvertFrom-Csv $FILDEF ##Filter Definition Table
+$FILDEFTAB = ConvertFrom-Csv -InputObject $FILDEF -Delimiter "," ##Filter Definition Table
  
 $CONDEF = "Consumer,  Description,
 ActiveScriptEventConsumer,	Executes a predefined script in an arbitrary scripting language when an event is delivered to it - Example: Running a Script Based on an Event,
@@ -92,8 +90,25 @@ Foreach($Consumer in (get-wmiobject -namespace root\subscription -Class __EventC
         if($Consumer -in ($CONDEFTAB.Consumer)){$TEST.Add("Consumer",$Consumer,"True")} 
                              }
 
+(get-wmiobject -namespace root\subscription -Class __Filtertoconsumerbinding) | % {$_.Consumer.Substring(30).trim('"'), $_.Filter.Substring(30).trim('"')}
+  
+  
+<#  gwmi win32_process | select-object name,processid,path,commandline,@{name="Hash"; expr={
+                if($_.path) {
+                        (certutil.exe -hashfile $_.path SHA256)[1] -replace " ", ""
+                } else {
+                    ""
+                } 
+            } #expr
+            }, #hash hashtable
+            @{name="Process_Owner"; expr={$_.getowner().domain + "\" + $_.getowner().user}
+            } -First 10 | Format-Table
 
-
+ 
+  gci | ? {$_.extension} | select-object name,@{name="Hash"; expr={
+  (certutil.exe -hashfile $_.fullname SHA256)[1] -replace " ", ""}},IsReadOnly
+                           
+<#
  get-WmiObject -query "select * from MSFT_SCMEventLogEvent"  ## ex. of running WMI queries
  get-WmiObject -query "select * from Win32_Bios"             ## ex. of running WMI queries
 
@@ -135,3 +150,4 @@ $serverList+= @{ServerName= 'blabla2'; OSType='Windows XP Profesional'}
 
 #display as table
 $account | % { new-object PSObject -Property $_}
+#>

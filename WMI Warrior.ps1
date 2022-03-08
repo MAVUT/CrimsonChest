@@ -155,3 +155,61 @@ $serverList+= @{ServerName= 'blabla2'; OSType='Windows XP Profesional'}
 #display as table
 $account | % { new-object PSObject -Property $_}
 #>
+
+
+function WMIWarrior
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)]
+        [string[]]
+        $ComputerName,
+
+        [pscredential]
+        $Credential
+    )
+    Begin
+    {
+        If (!$Credential) {$Credential = get-credential}
+    }
+    Process
+    {
+            $CONDEF = "Consumer,  Description,
+ActiveScriptEventConsumer,	Executes a predefined script in an arbitrary scripting language when an event is delivered to it - Example: Running a Script Based on an Event,
+CommandLineEventConsumer,	Launches an arbitrary process in the local system context when an event is delivered to it - Example: Running a Program from the Command Line Based on an Event,
+LogFileEventConsumer,	Writes customized strings to a text log file when events are delivered to it - Example: Writing to a Log File Based on an Event,
+NTEventLogEventConsumer,	Logs a specific message to the Windows event log when an event is delivered to it - Example: Logging to NT Event Log Based on an Event,
+ScriptingStandardConsumerSetting,	Provides registration data common to all instances of the ActiveScriptEventConsumer class,
+SMTPEventConsumer,	Sends an email message using SMTP each time an event is delivered to it - Example: Sending Email Based on an Event"
+
+$CONDEFTAB = ConvertFrom-Csv $CONDEF #Consumer Definition Table
+        icm -computername $ComputerName -credential $Credential -scriptblock {[System.Collections.ArrayList]$yo=@();foreach ($C2F in (get-wmiobject -namespace root\subscription -Class __Filtertoconsumerbinding)){ $C = $C2F.Consumer.Substring($C2F.Consumer.indexof("=") + 1).trim('"')
+                                                                                                 $F = $C2F.Filter.Substring($C2F.Filter.indexof("=") + 1).trim('"')
+                                                                                                 $G = Get-WMIObject -Namespace root/Subscription -Class __EventConsumer | ? Name -eq $C | % CommandLineTemplate
+                                                                                                 $H = Get-WMIObject -Namespace root/Subscription -Class __eventfilter | ? Name -eq $F | % Query
+                                                                                                 $I = Get-WMIObject -Namespace root/Subscription -Class __EventConsumer | ? Name -eq $C | % ScriptText
+                                                                                                 $J = Get-WMIObject -Namespace root/Subscription -Class __EventConsumer | ? Name -eq $C | % ScriptFilename
+                                                                                                 $consum = Get-WMIObject -Namespace root/Subscription -Class __EventConsumer | ? Name -eq $C
+                                                                                                 $yo.Add(@{Computer = (Get-NetIPAddress | % IPv4Address)[2] ;
+                                                                                                           ConsumerName = $C2F.Consumer.Substring($C2F.Consumer.indexof("=") + 1).trim('"');
+                                                                                                           FilterName = $C2F.Filter.Substring($C2F.Filter.indexof("=") + 1).trim('"');
+                                                                                                           FilterQuery = $H;
+                                                                                                           CMDLine = $G;
+                                                                                                           ScriptText = $I;
+                                                                                                           ScriptFile = $J;
+                                                                                                           ConsumerType = $consum.__CLASS })
+                                                                                                 } ; $yo
+        } | select-object -skip 2  | foreach {$yo.add($_)}
+            $yo | Select-Object @{Name = "Computer"; Expression = {$_.Computer}},
+                    @{Name = "Filter Name"; Expression = {$_.FilterName}},
+                    @{Name = "Filter Query"; Expression = {$_.FilterQuery}},
+                    @{Name = "Consumer Name"; Expression = {$_.ConsumerName}},
+                    @{Name = "Consumer Type"; Expression = {$_.ConsumerType}},
+                    @{Name = "CMD Line"; Expression = {$_.CMDLine}},
+                    @{Name = "Script Text"; Expression = {$_.ScriptText}},
+                    @{Name = "Script File"; Expression = {$_.ScriptT}}, 
+                    @{Name = "Consumer Definition" ; Expression = {if ($_.ConsumerType.replace(" ","") -in $CONDEFTAB.consumer){$CONDEFTAB[$CONDEFTAB.Consumer.IndexOf($_.ConsumerType.replace(" ", ""))].Description} else {return "Not Standard Consumer Class"}}                 
+                    } | Out-GridView 
+    }#process block
+}#function Survey-Services
